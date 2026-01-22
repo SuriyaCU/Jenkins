@@ -7,10 +7,19 @@ pipeline {
     }
 
     stages {
+
         stage('Checkout Code') {
             steps {
-                // Pull your code from Git
                 checkout scm
+            }
+        }
+
+        stage('Clean Workspace') {
+            steps {
+                dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app') {
+                    // Remove old target folder to avoid Maven clean errors
+                    sh 'rm -rf target || true'
+                }
             }
         }
 
@@ -23,12 +32,11 @@ pipeline {
         }
 
         stage('SonarQube Analysis') {
-            environment {
-                SONAR_TOKEN = credentials('sonarqube') // Replace with your Jenkins SonarQube token ID
-            }
             steps {
                 dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app') {
-                    sh "mvn sonar:sonar -Dsonar.login=${SONAR_TOKEN} -Dsonar.host.url=http://13.235.19.44:9000"
+                    withCredentials([string(credentialsId: 'sonarqube', variable: 'SONAR_TOKEN')]) {
+                        sh "mvn sonar:sonar -Dsonar.login=${SONAR_TOKEN} -Dsonar.host.url=http://13.235.19.44:9000"
+                    }
                 }
             }
         }
@@ -55,9 +63,8 @@ pipeline {
         stage('Update Deployment Manifest') {
             steps {
                 dir('java-maven-sonar-argocd-helm-k8s/k8s-manifests') {
-                    sh """
-                        sed -i 's|image: .*|image: suriyacu/ultimate-cicd:1|' deployment.yaml
-                    """
+                    // Replace image tag in deployment.yaml
+                    sh "sed -i 's|image: .*|image: suriyacu/ultimate-cicd:1|' deployment.yaml"
                 }
             }
         }
@@ -73,7 +80,7 @@ pipeline {
 
     post {
         always {
-            echo 'Cleaning up Docker containers (if any)...'
+            echo 'Cleaning up Docker containers and images...'
             sh 'docker system prune -af || true'
         }
         success {
