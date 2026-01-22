@@ -1,26 +1,21 @@
 pipeline {
   agent {
-  docker {
-    image 'maven:3.9.6-eclipse-temurin-17'
-    args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
-  }
-}
-
-     
+    docker {
+      image 'maven:3.9.6-eclipse-temurin-17'
+      args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
     }
   }
 
   environment {
-    DOCKER_IMAGE = "suriyacu/ultimate-cicd"
     SONAR_URL = "http://13.235.19.44:9000"
+    DOCKER_IMAGE = "suriyacu/ultimate-cicd"
   }
 
   stages {
 
     stage('Checkout') {
       steps {
-        git branch: 'main',
-            url: 'https://github.com/SuriyaCU/Jenkins.git'
+        echo 'Code checkout completed'
       }
     }
 
@@ -38,7 +33,7 @@ pipeline {
         withCredentials([string(credentialsId: 'sonarqube', variable: 'SONAR_AUTH_TOKEN')]) {
           sh '''
             cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
-            mvn sonar:sonar \
+            mvn org.sonarsource.scanner.maven:sonar-maven-plugin:4.0.0.4121:sonar \
               -Dsonar.login=$SONAR_AUTH_TOKEN \
               -Dsonar.host.url=$SONAR_URL
           '''
@@ -64,28 +59,3 @@ pipeline {
         )]) {
           sh '''
             echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-            docker push ${DOCKER_IMAGE}:${BUILD_NUMBER}
-          '''
-        }
-      }
-    }
-
-    stage('Update Deployment Manifest') {
-      steps {
-        withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
-          sh '''
-            git config user.email "abhishek.xyz@gmail.com"
-            git config user.name "Suriya C U"
-
-            sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" \
-            java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-
-            git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-            git commit -m "Update image tag to ${BUILD_NUMBER}"
-            git push https://${GITHUB_TOKEN}@github.com/SuriyaCU/Jenkins.git main
-          '''
-        }
-      }
-    }
-  }
-}
