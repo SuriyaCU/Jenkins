@@ -62,7 +62,7 @@ pipeline {
 
         stage('Update Deployment Manifest') {
             steps {
-                dir('java-maven-sonar-argocd-helm-k8s/k8s-manifests') {
+                dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests') {
                     sh "sed -i 's|image: .*|image: suriyacu/ultimate-cicd:1|' deployment.yaml"
                 }
             }
@@ -70,7 +70,7 @@ pipeline {
 
         stage('Deploy to Kubernetes') {
             steps {
-                dir('java-maven-sonar-argocd-helm-k8s') {
+                dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests') {
                     sh 'kubectl apply -f k8s-manifests/deployment.yaml'
                 }
             }
