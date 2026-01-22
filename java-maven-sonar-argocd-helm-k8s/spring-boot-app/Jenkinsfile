@@ -2,12 +2,14 @@ pipeline {
     agent any
 
     environment {
-        PATH = "/usr/bin:$PATH"
+        SONARQUBE = 'sonarqube' // SonarQube server ID in Jenkins
+        DOCKER_HUB_CRED = 'dockerhub-cred' // Updated credential ID
+        IMAGE_NAME = 'suriyacu/ultimate-cicd:1'
     }
 
     stages {
 
-        stage('Checkout Code') {
+        stage('Checkout SCM') {
             steps {
                 checkout scm
             }
@@ -16,8 +18,6 @@ pipeline {
         stage('Clean Workspace') {
             steps {
                 dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app') {
-                    // Fix permissions before cleaning
-                    sh 'sudo chown -R $(whoami):$(whoami) target || true'
                     sh 'rm -rf target || true'
                 }
             }
@@ -33,9 +33,9 @@ pipeline {
 
         stage('SonarQube Analysis') {
             steps {
-                dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app') {
-                    withCredentials([string(credentialsId: 'sonarqube', variable: 'SONAR_TOKEN')]) {
-                        sh "mvn sonar:sonar -Dsonar.login=${SONAR_TOKEN} -Dsonar.host.url=http://13.235.19.44:9000"
+                withSonarQubeEnv("${SONARQUBE}") {
+                    dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app') {
+                        sh 'mvn sonar:sonar'
                     }
                 }
             }
@@ -44,35 +44,31 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app') {
-                    sh 'docker build -t suriyacu/ultimate-cicd:1 .'
+                    sh "docker build -t ${IMAGE_NAME} ."
                 }
             }
         }
 
         stage('Push Docker Image') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub-cred', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                    sh """
-                        echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-                        docker push suriyacu/ultimate-cicd:1
-                    """
+                withCredentials([usernamePassword(credentialsId: "${DOCKER_HUB_CRED}", 
+                                                 usernameVariable: 'DOCKER_USER', 
+                                                 passwordVariable: 'DOCKER_PASS')]) {
+                    sh "echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin"
+                    sh "docker push ${IMAGE_NAME}"
                 }
             }
         }
 
         stage('Update Deployment Manifest') {
             steps {
-                dir('java-maven-sonar-argocd-helm-k8s/k8s-manifests') {
-                    sh "sed -i 's|image: .*|image: suriyacu/ultimate-cicd:1|' deployment.yaml"
-                }
+                echo 'Update Kubernetes deployment manifest (if needed)'
             }
         }
 
         stage('Deploy to Kubernetes') {
             steps {
-                dir('java-maven-sonar-argocd-helm-k8s') {
-                    sh 'kubectl apply -f k8s-manifests/deployment.yaml'
-                }
+                echo 'Deploying to Kubernetes (add kubectl apply commands here)'
             }
         }
     }
@@ -80,13 +76,13 @@ pipeline {
     post {
         always {
             echo 'Cleaning up Docker containers and images...'
-            sh 'docker system prune -af || true'
-        }
-        success {
-            echo 'Pipeline completed successfully!'
+            sh 'docker system prune -af'
         }
         failure {
             echo 'Pipeline failed!'
+        }
+        success {
+            echo 'Pipeline completed successfully!'
         }
     }
 }
