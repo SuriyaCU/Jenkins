@@ -15,7 +15,7 @@ pipeline {
 
     stage('Checkout') {
       steps {
-        echo 'Code checkout completed'
+        echo 'Checkout completed'
       }
     }
 
@@ -59,3 +59,28 @@ pipeline {
         )]) {
           sh '''
             echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+            docker push ${DOCKER_IMAGE}:${BUILD_NUMBER}
+          '''
+        }
+      }
+    }
+
+    stage('Update Deployment Manifest') {
+      steps {
+        withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
+          sh '''
+            git config user.email "abhishek.xyz@gmail.com"
+            git config user.name "Suriya C U"
+
+            sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" \
+              java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+
+            git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+            git commit -m "Update image tag to ${BUILD_NUMBER}"
+            git push https://${GITHUB_TOKEN}@github.com/SuriyaCU/Jenkins.git main
+          '''
+        }
+      }
+    }
+  }
+}
