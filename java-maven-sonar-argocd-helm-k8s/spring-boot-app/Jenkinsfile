@@ -80,7 +80,7 @@ pipeline {
                 dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests') {
                     script {
                         if (fileExists('deployment.yml')) {
-                            sh 'kubectl --kubeconfig=/home/jenkins/jenkins-kubeconfig.yaml apply -f deployment.yml'
+                            sh 'kubectl --kubeconfig=/home/ubuntu/.kube/config apply -f deployment.yml'
                             echo "Deployment applied to Kubernetes"
                         } else {
                             echo "deployment.yml not found, skipping deployment"
@@ -93,14 +93,11 @@ pipeline {
 
     post {
         always {
-            echo 'Cleaning up Docker containers and images...'
+            echo "Cleaning up Docker containers and images..."
             sh 'docker system prune -af'
         }
-        success {
-            echo 'Pipeline completed successfully!'
-        }
         failure {
-            echo 'Pipeline failed!'
+            echo "Pipeline failed!"
         }
     }
 }
