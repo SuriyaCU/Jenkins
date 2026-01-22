@@ -81,7 +81,7 @@ pipeline {
                     script {
                         if (fileExists('deployment.yml')) {
                             sh 'kubectl apply -f deployment.yml'
-                            echo "Deployment applied to Kubernetes"
+                            echo "Deployment applied to Minikube"
                         } else {
                             echo "deployment.yml not found, skipping deployment"
                         }
@@ -89,6 +89,12 @@ pipeline {
                 }
             }
         }
+    }
 
-    } // end stages
-} // end pipeline
+    post {
+        always {
+            echo "Cleaning up Docker containers and images..."
+            sh 'docker system prune -af'
+        }
+    }
+}
