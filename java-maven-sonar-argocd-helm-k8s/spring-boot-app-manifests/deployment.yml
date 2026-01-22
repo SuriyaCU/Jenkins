@@ -1,13 +1,24 @@
-stage('Update Deployment Manifest') {
-    steps {
-        dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests') {
-            script {
-                if (fileExists('deployment.yml')) {
-                    sh "sed -i 's|image: .*|image: ${DOCKER_IMAGE}:${DOCKER_TAG}|' deployment.yml"
-                } else {
-                    echo "deployment.yml not found, skipping image update"
-                }
-            }
-        }
-    }
-}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spring-boot-app
+  labels:
+    app: spring-boot-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: spring-boot-app
+  template:
+    metadata:
+      labels:
+        app: spring-boot-app
+    spec:
+      containers:
+        - name: spring-boot-app
+          image: suriyacu/ultimate-cicd:1
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "prod"
