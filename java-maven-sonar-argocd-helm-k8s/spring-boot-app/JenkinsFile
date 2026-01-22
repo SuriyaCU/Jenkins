@@ -1,7 +1,7 @@
 pipeline {
     agent {
         docker {
-            image 'abhishekf5/maven-abhishek-docker-agent:v1'
+            image 'suriyacu/maven-suriya-docker-agent:v1'
             args '--user root -v /var/run/docker.sock:/var/run/docker.sock' // mount Docker socket
         }
     }
@@ -59,7 +59,7 @@ pipeline {
                 withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
                     sh '''
                     cd repo
-                    git config user.email "suriya@example.com"
+                    git config user.email "suriyac.u.99@gmail.com.com"
                     git config user.name "Suriya CU"
                     BUILD_NUMBER=${BUILD_NUMBER}
                     sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
