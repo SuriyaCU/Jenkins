@@ -60,33 +60,32 @@ pipeline {
             }
         }
 
-        stage('Update Deployment Manifest') {
-            steps {
-                dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests') {
-                    sh "sed -i 's|image: .*|image: suriyacu/ultimate-cicd:1|' deployment.yaml"
-                }
-            }
-        }
-
-        stage('Deploy to Kubernetes') {
-            steps {
-                dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests') {
-                    sh 'kubectl apply -f k8s-manifests/deployment.yaml'
+       stage('Update Deployment Manifest') {
+    steps {
+        dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests') {
+            script {
+                if (fileExists('deployment.yml')) {
+                    sh "sed -i 's|image: .*|image: suriyacu/ultimate-cicd:1|' deployment.yml"
+                    echo "Updated deployment.yml with new Docker image"
+                } else {
+                    echo "deployment.yml not found, skipping image update"
                 }
             }
         }
     }
+}
 
-    post {
-        always {
-            echo 'Cleaning up Docker containers and images...'
-            sh 'docker system prune -af || true'
-        }
-        success {
-            echo 'Pipeline completed successfully!'
-        }
-        failure {
-            echo 'Pipeline failed!'
+stage('Deploy to Kubernetes') {
+    steps {
+        dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests') {
+            script {
+                if (fileExists('deployment.yml')) {
+                    sh 'kubectl apply -f deployment.yml'
+                    echo "Deployment applied to Kubernetes"
+                } else {
+                    echo "deployment.yml not found, skipping deployment"
+                }
+            }
         }
     }
 }
