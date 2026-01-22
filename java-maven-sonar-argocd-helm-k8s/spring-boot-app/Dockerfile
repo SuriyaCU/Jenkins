@@ -1,13 +1,14 @@
-# You can change this base image to anything else
-# But make sure to use the correct version of Java
 FROM adoptopenjdk/openjdk11:alpine-jre
 
-# Simply the artifact path
+# Install docker CLI, bash, curl
+RUN apk add --no-cache docker bash curl git
+
+# Install Maven
+RUN apk add --no-cache maven
+
+# Copy your artifact
 ARG artifact=target/spring-boot-web.jar
-
 WORKDIR /opt/app
-
 COPY ${artifact} app.jar
 
-# This should not be changed
 ENTRYPOINT ["java","-jar","app.jar"]
