@@ -1,9 +1,9 @@
 pipeline {
     agent {
         docker {
-      image 'abhishekf5/maven-abhishek-docker-agent:v1'
-      args '--user root -v /var/run/docker.sock:/var/run/docker.sock' // mount Docker socket to access the host's Docker daemon
-    }
+            image 'suriyacu/maven-suriya-docker-agent:v1'
+            args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
+        }
     }
 
     parameters {
@@ -31,10 +31,10 @@ pipeline {
         stage('Static Code Analysis') {
             steps {
                 withCredentials([string(credentialsId: 'sonarqube', variable: 'SONAR_AUTH_TOKEN')]) {
-                    sh '''
+                    sh """
                     cd repo/java-maven-sonar-argocd-helm-k8s/spring-boot-app
-                    mvn sonar:sonar -Dsonar.login=$SONAR_AUTH_TOKEN -Dsonar.host.url=${SONAR_URL}
-                    '''
+                    mvn sonar:sonar -Dsonar.login=$SONAR_AUTH_TOKEN -Dsonar.host.url=${params.SONAR_URL}
+                    """
                 }
             }
         }
@@ -57,19 +57,18 @@ pipeline {
         stage('Update Deployment File and Push to Fork') {
             steps {
                 withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
-                    sh '''
+                    sh """
                     cd repo
-                    git config user.email "suriyac.u.99@gmail.com.com"
+                    git config user.email "suriyac.u.99@gmail.com"
                     git config user.name "Suriya CU"
                     BUILD_NUMBER=${BUILD_NUMBER}
                     sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
                     git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
                     git commit -m "Update deployment image to version ${BUILD_NUMBER}"
                     git push https://${GITHUB_TOKEN}@github.com/SuriyaCU/Jenkins.git HEAD:main
-                    '''
+                    """
                 }
             }
         }
     }
 }
-
