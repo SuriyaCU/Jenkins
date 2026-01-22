@@ -24,7 +24,7 @@ pipeline {
 
         stage('SonarQube Analysis') {
             environment {
-                SONAR_TOKEN = credentials('sonarqube-token') // Replace with your Jenkins SonarQube token ID
+                SONAR_TOKEN = credentials('sonarqube') // Replace with your Jenkins SonarQube token ID
             }
             steps {
                 dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app') {
