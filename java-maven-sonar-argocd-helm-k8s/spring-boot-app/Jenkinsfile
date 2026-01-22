@@ -1,86 +1,86 @@
 pipeline {
-  agent {
-    docker {
-      image 'maven:3.9.6-eclipse-temurin-17'
-      args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
-    }
-  }
+    agent any
 
-  environment {
-    SONAR_URL = "http://13.235.19.44:9000"
-    DOCKER_IMAGE = "suriyacu/ultimate-cicd"
-  }
-
-  stages {
-
-    stage('Checkout') {
-      steps {
-        echo 'Checkout completed'
-      }
+    environment {
+        // Ensure Jenkins can find docker
+        PATH = "/usr/bin:$PATH"
     }
 
-    stage('Build and Test') {
-      steps {
-        sh '''
-          cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
-          mvn clean package
-        '''
-      }
-    }
-
-    stage('Static Code Analysis') {
-      steps {
-        withCredentials([string(credentialsId: 'sonarqube', variable: 'SONAR_AUTH_TOKEN')]) {
-          sh '''
-            cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
-            mvn org.sonarsource.scanner.maven:sonar-maven-plugin:4.0.0.4121:sonar \
-              -Dsonar.login=$SONAR_AUTH_TOKEN \
-              -Dsonar.host.url=$SONAR_URL
-          '''
+    stages {
+        stage('Checkout Code') {
+            steps {
+                // Pull your code from Git
+                checkout scm
+            }
         }
-      }
-    }
 
-    stage('Build Docker Image') {
-      steps {
-        sh '''
-          cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
-          docker build -t ${DOCKER_IMAGE}:${BUILD_NUMBER} .
-        '''
-      }
-    }
-
-    stage('Push Docker Image') {
-      steps {
-        withCredentials([usernamePassword(
-          credentialsId: 'docker-cred',
-          usernameVariable: 'DOCKER_USER',
-          passwordVariable: 'DOCKER_PASS'
-        )]) {
-          sh '''
-            echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-            docker push ${DOCKER_IMAGE}:${BUILD_NUMBER}
-          '''
+        stage('Build with Maven') {
+            steps {
+                dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app') {
+                    sh 'mvn clean package'
+                }
+            }
         }
-      }
-    }
 
-    stage('Update Deployment Manifest') {
-      steps {
-        withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
-          sh '''
-            git config user.email "abhishek.xyz@gmail.com"
-            git config user.name "Suriya C U"
-
-            sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" \
-              java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-
-            git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-            git commit -m "Update image tag to ${BUILD_NUMBER}"
-            git push https://${GITHUB_TOKEN}@github.com/SuriyaCU/Jenkins.git main
-          '''
+        stage('SonarQube Analysis') {
+            environment {
+                SONAR_TOKEN = credentials('sonarqube-token') // Replace with your Jenkins SonarQube token ID
+            }
+            steps {
+                dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app') {
+                    sh "mvn sonar:sonar -Dsonar.login=${SONAR_TOKEN} -Dsonar.host.url=http://13.235.19.44:9000"
+                }
+            }
         }
-      }
+
+        stage('Build Docker Image') {
+            steps {
+                dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app') {
+                    sh 'docker build -t suriyacu/ultimate-cicd:1 .'
+                }
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh """
+                        echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+                        docker push suriyacu/ultimate-cicd:1
+                    """
+                }
+            }
+        }
+
+        stage('Update Deployment Manifest') {
+            steps {
+                dir('java-maven-sonar-argocd-helm-k8s/k8s-manifests') {
+                    sh """
+                        sed -i 's|image: .*|image: suriyacu/ultimate-cicd:1|' deployment.yaml
+                    """
+                }
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                dir('java-maven-sonar-argocd-helm-k8s') {
+                    sh 'kubectl apply -f k8s-manifests/deployment.yaml'
+                }
+            }
+        }
     }
-  }
+
+    post {
+        always {
+            echo 'Cleaning up Docker containers (if any)...'
+            sh 'docker system prune -af || true'
+        }
+        success {
+            echo 'Pipeline completed successfully!'
+        }
+        failure {
+            echo 'Pipeline failed!'
+        }
+    }
 }
