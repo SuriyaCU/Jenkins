@@ -60,32 +60,35 @@ pipeline {
             }
         }
 
-       stage('Update Deployment Manifest') {
-    steps {
-        dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests') {
-            script {
-                if (fileExists('deployment.yml')) {
-                    sh "sed -i 's|image: .*|image: suriyacu/ultimate-cicd:1|' deployment.yml"
-                    echo "Updated deployment.yml with new Docker image"
-                } else {
-                    echo "deployment.yml not found, skipping image update"
+        stage('Update Deployment Manifest') {
+            steps {
+                dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests') {
+                    script {
+                        if (fileExists('deployment.yml')) {
+                            sh "sed -i 's|image: .*|image: suriyacu/ultimate-cicd:1|' deployment.yml"
+                            echo "Updated deployment.yml with new Docker image"
+                        } else {
+                            echo "deployment.yml not found, skipping image update"
+                        }
+                    }
                 }
             }
         }
-    }
-}
 
-stage('Deploy to Kubernetes') {
-    steps {
-        dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests') {
-            script {
-                if (fileExists('deployment.yml')) {
-                    sh 'kubectl apply -f deployment.yml'
-                    echo "Deployment applied to Kubernetes"
-                } else {
-                    echo "deployment.yml not found, skipping deployment"
+        stage('Deploy to Kubernetes') {
+            steps {
+                dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests') {
+                    script {
+                        if (fileExists('deployment.yml')) {
+                            sh 'kubectl apply -f deployment.yml'
+                            echo "Deployment applied to Kubernetes"
+                        } else {
+                            echo "deployment.yml not found, skipping deployment"
+                        }
+                    }
                 }
             }
         }
-    }
-}
+
+    } // end stages
+} // end pipeline
